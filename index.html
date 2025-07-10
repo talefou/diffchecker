@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图片对比查看器</title>
+    <script defer src="https://u.vayfou.cn/script.js" data-website-id="e5a59480-dcba-4358-b41f-233bbb0a22a0"></script>
+    <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background: #1a1d24;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* 顶部控制栏 */
+        .control-bar {
+            background: rgba(30, 33, 40, 0.95);
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 15px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo i {
+            font-size: 24px;
+            color: #4a8cff;
+        }
+        
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 500;
+        }
+        
+        .folder-info {
+            display: flex;
+            gap: 25px;
+        }
+        
+        .folder-card {
+            background: rgba(45, 49, 58, 0.8);
+            padding: 8px 16px;
+            border-radius: 6px;
+            min-width: 180px;
+        }
+        
+        .folder-card h3 {
+            font-size: 13px;
+            font-weight: 500;
+            color: #8a96b0;
+            margin-bottom: 5px;
+        }
+        
+        .folder-card p {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .folder-card p i {
+            color: #4a8cff;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn {
+            background: rgba(65, 70, 82, 0.8);
+            border: none;
+            color: #e0e0e0;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            background: rgba(74, 140, 255, 0.8);
+        }
+        
+        .btn i {
+            font-size: 14px;
+        }
+        
+        /* 图片展示区域 */
+        .image-container {
+            flex: 1;
+            position: relative;
+            background: #0f1115;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .main-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            transition: transform 0.3s ease;
+            cursor: grab;
+        }
+        
+        .main-image.dragging {
+            cursor: grabbing;
+        }
+        
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(30, 33, 40, 0.7);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 80px;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+        
+        .nav-arrow:hover {
+            background: rgba(74, 140, 255, 0.8);
+        }
+        
+        .prev {
+            left: 0;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .next {
+            right: 0;
+            border-radius: 5px 0 0 5px;
+        }
+        
+        .image-info {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            background: rgba(30, 33, 40, 0.7);
+            padding: 8px 16px;
+            margin: 0 auto;
+            width: max-content;
+            border-radius: 4px;
+            font-size: 14px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .image-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(45, 49, 58, 0.8);
+        }
+        
+        .image-status.default {
+            color: #4a8cff;
+        }
+        
+        .image-status.compare {
+            color: #ff6b6b;
+        }
+        
+        /* 缩略图区域 */
+        .thumbnail-container {
+            background: rgba(30, 33, 40, 0.95);
+            padding: 15px;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            height: 110px;
+            z-index: 100;
+            box-shadow: 0 -2px 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        .thumbnail {
+            width: 120px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: all 0.2s;
+            border: 2px solid transparent;
+        }
+        
+        .thumbnail:hover {
+            opacity: 1;
+        }
+        
+        .thumbnail.active {
+            opacity: 1;
+            border-color: #4a8cff;
+        }
+        
+        .help-text {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(30, 33, 40, 0.8);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 13px;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .key-hint {
+            display: inline-flex;
+            background: rgba(45, 49, 58, 0.9);
+            padding: 4px 10px;
+            border-radius: 4px;
+            margin: 0 5px;
+            font-family: monospace;
+            min-width: 40px;
+            justify-content: center;
+        }
+        
+        /* 初始状态 */
+        .init-state {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+            padding: 30px;
+            gap: 25px;
+        }
+        
+        .init-state i {
+            font-size: 60px;
+            color: #4a8cff;
+            opacity: 0.7;
+        }
+        
+        .init-state h2 {
+            font-size: 24px;
+            font-weight: 500;
+            color: #e0e0e0;
+        }
+        
+        .init-state p {
+            max-width: 500px;
+            line-height: 1.6;
+            color: #8a96b0;
+        }
+        
+        .init-state .btn-large {
+            background: rgba(74, 140, 255, 0.2);
+            border: 1px solid rgba(74, 140, 255, 0.5);
+            color: #4a8cff;
+            padding: 12px 30px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 15px;
+        }
+        
+        .init-state .btn-large:hover {
+            background: rgba(74, 140, 255, 0.4);
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 900px) {
+            .control-bar {
+                flex-wrap: wrap;
+                gap: 15px;
+            }
+            
+            .folder-info {
+                order: 3;
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .help-text {
+                top: auto;
+                bottom: 130px;
+                right: 50%;
+                transform: translateX(50%);
+                width: 90%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="control-bar">
+            <div class="logo">
+                <i class="fas fa-images"></i>
+                <h1>图片对比查看器</h1>
+            </div>
+            
+            <div class="folder-info">
+                <div class="folder-card">
+                    <h3>默认文件夹</h3>
+                    <p><i class="fas fa-folder-open"></i> <span id="default-info">未选择</span></p>
+                </div>
+                
+                <div class="folder-card">
+                    <h3>对比文件夹</h3>
+                    <p><i class="fas fa-folder"></i> <span id="compare-info">未选择</span></p>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button class="btn" id="import-default">
+                    <i class="fas fa-folder-plus"></i> 导入默认文件夹
+                </button>
+                <button class="btn" id="import-compare">
+                    <i class="fas fa-folder-plus"></i> 导入对比文件夹
+                </button>
+                <button class="btn" id="reset-btn" style="display: none;">
+                    <i class="fas fa-undo"></i> 还原
+                </button>
+            </div>
+        </div>
+        
+        <div class="image-container" id="image-container">
+            <!-- 初始状态 -->
+            <div class="init-state" id="init-state">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h2>导入图片文件夹开始对比</h2>
+                <p>导入默认文件夹和对比文件夹后，您可以使用左右箭头浏览图片，按空格键在默认和对比图片之间切换</p>
+                
+                <div>
+                    <button class="btn-large" id="import-default-large">
+                        <i class="fas fa-folder-open"></i> 导入默认文件夹
+                    </button>
+                    <button class="btn-large" id="import-compare-large">
+                        <i class="fas fa-folder"></i> 导入对比文件夹
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 图片显示区域 -->
+            <button class="nav-arrow prev" id="prev-btn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <img src="" alt="" class="main-image" id="main-image">
+            <button class="nav-arrow next" id="next-btn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            
+            <div class="image-info">
+                <span id="image-name">未选择图片</span>
+                <div class="image-status default" id="image-status">
+                    <i class="fas fa-eye"></i>
+                    <span>默认图片</span>
+                </div>
+            </div>
+            
+            <div class="help-text" id="help-text">
+                <span>导航: <span class="key-hint">←</span> <span class="key-hint">→</span></span>
+                <span>切换模式: <span class="key-hint">空格</span></span>
+                <span>放大缩小: <span class="key-hint">滚轮</span></span>
+            </div>
+        </div>
+        
+        <div class="thumbnail-container" id="thumbnail-container">
+            <!-- 缩略图会动态添加到这里 -->
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM元素
+            const initState = document.getElementById('init-state');
+            const imageContainer = document.getElementById('image-container');
+            const mainImage = document.getElementById('main-image');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const imageName = document.getElementById('image-name');
+            const imageStatus = document.getElementById('image-status');
+            const thumbnailContainer = document.getElementById('thumbnail-container');
+            const defaultInfo = document.getElementById('default-info');
+            const compareInfo = document.getElementById('compare-info');
+            const importDefaultBtn = document.getElementById('import-default');
+            const importCompareBtn = document.getElementById('import-compare');
+            const importDefaultLargeBtn = document.getElementById('import-default-large');
+            const importCompareLargeBtn = document.getElementById('import-compare-large');
+            const resetBtn = document.getElementById('reset-btn');
+            const helpText = document.getElementById('help-text');
+            
+            // 状态变量
+            let currentIndex = 0;
+            let currentScale = 1;
+            let isDefaultImage = true;
+            let defaultImages = [];
+            let compareImages = [];
+            let matchedPairs = [];
+            let isDragging = false;
+            let startX, startY, translateX = 0, translateY = 0;
+            
+            // 事件监听
+            importDefaultBtn.addEventListener('click', () => handleFolderImport('default'));
+            importCompareBtn.addEventListener('click', () => handleFolderImport('compare'));
+            importDefaultLargeBtn.addEventListener('click', () => handleFolderImport('default'));
+            importCompareLargeBtn.addEventListener('click', () => handleFolderImport('compare'));
+            resetBtn.addEventListener('click', resetApp);
+            prevBtn.addEventListener('click', showPrevImage);
+            nextBtn.addEventListener('click', showNextImage);
+            
+            // 图片拖拽功能
+            mainImage.addEventListener('mousedown', startDrag);
+            document.addEventListener('mousemove', dragImage);
+            document.addEventListener('mouseup', endDrag);
+            mainImage.addEventListener('touchstart', startDrag);
+            document.addEventListener('touchmove', dragImage);
+            document.addEventListener('touchend', endDrag);
+            
+            // 处理文件夹导入
+            function handleFolderImport(type) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.webkitdirectory = true;
+                input.multiple = true;
+                
+                input.addEventListener('change', (event) => {
+                    const files = Array.from(event.target.files);
+                    const imageFiles = files.filter(file => 
+                        file.type.startsWith('image/')
+                    );
+                    
+                    if (imageFiles.length === 0) {
+                        alert('选择的文件夹中没有图片文件');
+                        return;
+                    }
+                    
+                    // 按文件名排序
+                    imageFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, {
+                        numeric: true,
+                        sensitivity: 'base'
+                    }));
+                    
+                    if (type === 'default') {
+                        // 释放之前创建的URL对象
+                        defaultImages.forEach(img => URL.revokeObjectURL(img.url));
+                        defaultImages = imageFiles.map(file => ({
+                            name: file.name,
+                            file: file,
+                            url: URL.createObjectURL(file)
+                        }));
+                        defaultInfo.textContent = `已导入 (${defaultImages.length}张图片)`;
+                    } else {
+                        // 释放之前创建的URL对象
+                        compareImages.forEach(img => URL.revokeObjectURL(img.url));
+                        compareImages = imageFiles.map(file => ({
+                            name: file.name,
+                            file: file,
+                            url: URL.createObjectURL(file)
+                        }));
+                        compareInfo.textContent = `已导入 (${compareImages.length}张图片)`;
+                    }
+                    
+                    updateFolderInfo();
+                    
+                    // 如果两个文件夹都已导入，初始化查看器
+                    if (defaultImages.length > 0 && compareImages.length > 0) {
+                        initViewer();
+                    }
+                });
+                
+                input.click();
+            }
+            
+            // 更新文件夹信息
+            function updateFolderInfo() {
+                if (defaultImages.length > 0 && compareImages.length > 0) {
+                    initState.style.display = 'none';
+                    imageContainer.style.backgroundColor = '#0f1115';
+                    resetBtn.style.display = 'flex';
+                    helpText.style.display = 'none';
+                    
+                    // 创建匹配的图片对
+                    createMatchedPairs();
+                }
+            }
+            
+            // 创建匹配的图片对(文件名和后缀相同)
+            function createMatchedPairs() {
+                matchedPairs = [];
+                
+                // 以默认文件夹为基准，查找对比文件夹中同名的图片
+                defaultImages.forEach(defaultImg => {
+                    const compareImg = compareImages.find(img => img.name === defaultImg.name);
+                    if (compareImg) {
+                        matchedPairs.push({
+                            name: defaultImg.name,
+                            defaultUrl: defaultImg.url,
+                            compareUrl: compareImg.url
+                        });
+                    } else {
+                        // 只在默认文件夹中存在的图片
+                        matchedPairs.push({
+                            name: defaultImg.name,
+                            defaultUrl: defaultImg.url,
+                            compareUrl: null
+                        });
+                    }
+                });
+                
+                // 不包含只在对比文件夹中存在的图片
+            }
+            
+            // 初始化查看器
+            function initViewer() {
+                // 创建缩略图
+                createThumbnails();
+                
+                // 显示第一张图片
+                currentIndex = 0;
+                isDefaultImage = true;
+                updateViewer();
+            }
+            
+            // 创建缩略图
+            function createThumbnails() {
+                thumbnailContainer.innerHTML = '';
+                
+                matchedPairs.forEach((pair, index) => {
+                    const thumb = document.createElement('img');
+                    thumb.src = pair.defaultUrl;
+                    thumb.classList.add('thumbnail');
+                    if (index === currentIndex) {
+                        thumb.classList.add('active');
+                    }
+                    
+                    thumb.addEventListener('click', () => {
+                        currentIndex = index;
+                        isDefaultImage = true;
+                        updateViewer();
+                    });
+                    
+                    thumbnailContainer.appendChild(thumb);
+                });
+            }
+            
+            // 更新查看器
+            function updateViewer() {
+                const currentPair = matchedPairs[currentIndex];
+                
+                if (currentPair) {
+                    const showCompare = isDefaultImage ? false : !!currentPair.compareUrl;
+                    
+                    if (showCompare) {
+                        mainImage.src = currentPair.compareUrl;
+                        imageStatus.className = 'image-status compare';
+                        imageStatus.innerHTML = '<i class="fas fa-exchange-alt"></i> 对比图片';
+                    } else {
+                        mainImage.src = currentPair.defaultUrl;
+                        imageStatus.className = 'image-status default';
+                        imageStatus.innerHTML = '<i class="fas fa-eye"></i> 默认图片';
+                    }
+                    
+                    imageName.textContent = currentPair.name;
+                    
+                    // 重置图片位置和缩放
+                    resetImageTransform();
+                }
+                
+                // 更新缩略图激活状态
+                document.querySelectorAll('.thumbnail').forEach((thumb, index) => {
+                    if (index === currentIndex) {
+                        thumb.classList.add('active');
+                    } else {
+                        thumb.classList.remove('active');
+                    }
+                });
+            }
+            
+            // 重置图片变换
+            function resetImageTransform() {
+                currentScale = 1;
+                translateX = 0;
+                translateY = 0;
+                mainImage.style.transform = 'translate(0, 0) scale(1)';
+            }
+            
+            // 导航功能
+            function showPrevImage() {
+                if (matchedPairs.length === 0) return;
+                
+                if (currentIndex > 0) {
+                    currentIndex--;
+                } else {
+                    // 循环到最后一张
+                    currentIndex = matchedPairs.length - 1;
+                }
+                
+                isDefaultImage = true;
+                updateViewer();
+            }
+            
+            function showNextImage() {
+                if (matchedPairs.length === 0) return;
+                
+                if (currentIndex < matchedPairs.length - 1) {
+                    currentIndex++;
+                } else {
+                    // 循环到第一张
+                    currentIndex = 0;
+                }
+                
+                isDefaultImage = true;
+                updateViewer();
+            }
+            
+            // 图片拖拽功能
+            function startDrag(e) {
+                if (matchedPairs.length === 0) return;
+                
+                isDragging = true;
+                mainImage.classList.add('dragging');
+                
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                
+                startX = clientX - translateX;
+                startY = clientY - translateY;
+                
+                e.preventDefault();
+            }
+            
+            function dragImage(e) {
+                if (!isDragging) return;
+                
+                const clientX = e.clientX || e.touches[0].clientX;
+                const clientY = e.clientY || e.touches[0].clientY;
+                
+                translateX = clientX - startX;
+                translateY = clientY - startY;
+                
+                mainImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+                
+                e.preventDefault();
+            }
+            
+            function endDrag() {
+                isDragging = false;
+                mainImage.classList.remove('dragging');
+            }
+            
+            // 图片缩放功能
+            mainImage.addEventListener('wheel', function(e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                currentScale += delta;
+                
+                // 限制缩放范围
+                if (currentScale < 0.1) currentScale = 0.1;
+                if (currentScale > 3) currentScale = 3;
+                
+                mainImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+            });
+            
+            // 空格键切换功能
+            document.addEventListener('keydown', function(e) {
+                if (matchedPairs.length === 0) return;
+                
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    const currentPair = matchedPairs[currentIndex];
+                    if (currentPair.compareUrl) {
+                        isDefaultImage = !isDefaultImage;
+                        
+                        // 仅切换图片，保持位置和缩放不变
+                        if (isDefaultImage) {
+                            mainImage.src = currentPair.defaultUrl;
+                            imageStatus.className = 'image-status default';
+                            imageStatus.innerHTML = '<i class="fas fa-eye"></i> 默认图片';
+                        } else {
+                            mainImage.src = currentPair.compareUrl;
+                            imageStatus.className = 'image-status compare';
+                            imageStatus.innerHTML = '<i class="fas fa-exchange-alt"></i> 对比图片';
+                        }
+                    }
+                }
+                
+                // 左右箭头导航
+                if (e.code === 'ArrowLeft') {
+                    showPrevImage();
+                } else if (e.code === 'ArrowRight') {
+                    showNextImage();
+                }
+            });
+            
+            // 重置应用
+            function resetApp() {
+                // 释放URL对象
+                defaultImages.forEach(img => URL.revokeObjectURL(img.url));
+                compareImages.forEach(img => URL.revokeObjectURL(img.url));
+                
+                // 重置状态
+                currentIndex = 0;
+                currentScale = 1;
+                isDefaultImage = true;
+                defaultImages = [];
+                compareImages = [];
+                matchedPairs = [];
+                translateX = 0;
+                translateY = 0;
+                
+                // 重置UI
+                initState.style.display = 'flex';
+                imageContainer.style.backgroundColor = 'transparent';
+                resetBtn.style.display = 'none';
+                helpText.style.display = 'flex';
+                thumbnailContainer.innerHTML = '';
+                mainImage.src = '';
+                mainImage.style.transform = 'translate(0, 0) scale(1)';
+                imageName.textContent = '未选择图片';
+                imageStatus.className = 'image-status default';
+                imageStatus.innerHTML = '<i class="fas fa-eye"></i> 默认图片';
+                defaultInfo.textContent = '未选择';
+                compareInfo.textContent = '未选择';
+                mainImage.classList.remove('dragging');
+            }
+        });
+    </script>
+</body>
+</html>
